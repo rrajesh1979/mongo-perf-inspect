@@ -51,7 +51,7 @@ var standardFields = log.Fields{
 func init() {
 	// Log as JSON instead of the default ASCII formatter.
 	log.SetFormatter(&log.JSONFormatter{
-		PrettyPrint: true,
+		PrettyPrint: false,
 	})
 
 	// Output to stdout instead of the default stderr
@@ -180,7 +180,7 @@ func getMongoConnection(uri string) (*mongo.Client, func(), error) {
 
 func main() {
 
-	log.Info("MongoDB performance inspector tool v0.01 developed in golang !")
+	log.WithFields(standardFields).Info("MongoDB performance inspector tool v0.01 developed in golang !")
 
 	cmdOptions := getOptions()
 	log.WithFields(standardFields).Info(cmdOptions)
@@ -189,8 +189,6 @@ func main() {
 		flag.Usage()
 	}
 
-	newDoc := createTestDoc(cmdOptions.numFields, cmdOptions.depth, cmdOptions.binary)
-
 	client, closeConnection, err := getMongoConnection(cmdOptions.mongodbURI)
 	if err != nil {
 		panic(err)
@@ -198,11 +196,27 @@ func main() {
 		defer closeConnection()
 	}
 
+	var d = time.Duration(cmdOptions.duration) * time.Second
+	var t = time.Now().Add(d)
+
+	for {
+		if time.Now().After(t) {
+			break
+		}
+
+		result, error := insertDoc(cmdOptions, client, err)
+		if error != nil {
+			panic(error)
+		} else {
+			log.Info(result.InsertedID)
+		}
+	}
+
+}
+
+func insertDoc(cmdOptions Options, client *mongo.Client, err error) (*mongo.InsertOneResult, error) {
+	newDoc := createTestDoc(cmdOptions.numFields, cmdOptions.depth, cmdOptions.binary)
 	collection := client.Database(cmdOptions.dbName).Collection(cmdOptions.collName)
 	result, err := collection.InsertOne(context.TODO(), newDoc)
-	if err != nil {
-		panic(err)
-	}
-	log.Info(result.InsertedID)
-
+	return result, err
 }
