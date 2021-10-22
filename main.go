@@ -204,7 +204,7 @@ func main() {
 			break
 		}
 
-		result, error := insertDoc(cmdOptions, client, err)
+		result, error := insertDoc(cmdOptions, client)
 		if error != nil {
 			panic(error)
 		} else {
@@ -214,7 +214,7 @@ func main() {
 
 }
 
-func insertDoc(cmdOptions Options, client *mongo.Client, err error) (*mongo.InsertOneResult, error) {
+func insertDoc(cmdOptions Options, client *mongo.Client) (*mongo.InsertOneResult, error) {
 	newDoc := createTestDoc(cmdOptions.numFields, cmdOptions.depth, cmdOptions.binary)
 	collection := client.Database(cmdOptions.dbName).Collection(cmdOptions.collName)
 	result, err := collection.InsertOne(context.TODO(), newDoc)
