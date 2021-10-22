@@ -18,6 +18,102 @@ import (
 	"time"
 )
 
+var standardFields = log.Fields{
+	"appname": "mongo-perf-inspect",
+	"thread":  "thread-1",
+}
+
+func init() {
+	// Log as JSON instead of the default ASCII formatter.
+	log.SetFormatter(&log.JSONFormatter{
+		PrettyPrint: false,
+	})
+
+	// Output to stdout instead of the default stderr
+	// Can be any io.Writer, see below for File example
+	log.SetOutput(os.Stdout)
+
+	// Only log the warning severity or above.
+	log.SetLevel(log.ErrorLevel)
+}
+
+func getMongoConnection(uri string) (*mongo.Client, func(), error) {
+	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
+	return client, func() {
+		if err := client.Disconnect(context.TODO()); err != nil {
+			panic(err)
+		}
+	}, err
+}
+
+func main() {
+
+	log.WithFields(standardFields).Info("MongoDB performance inspector tool v0.01 developed in golang !")
+
+	cmdOptions := getOptions()
+	log.WithFields(standardFields).Info(cmdOptions)
+
+	if cmdOptions.help {
+		flag.Usage()
+	}
+
+	client, closeConnection, err := getMongoConnection(cmdOptions.mongodbURI)
+	if err != nil {
+		panic(err)
+	} else {
+		defer closeConnection()
+	}
+
+	var duration = time.Duration(cmdOptions.duration) * time.Second
+	var endTime = time.Now().Add(duration)
+
+	startLoadProcess(cmdOptions, client, endTime)
+
+}
+
+func startLoadProcess(cmdOptions Options, client *mongo.Client, endTime time.Time) {
+	parallelization := cmdOptions.workers
+	c := make(chan string)
+	var wg sync.WaitGroup
+	wg.Add(parallelization)
+
+	for i := 0; i < parallelization; i++ {
+		go func(c chan string) {
+			for {
+				workerId, more := <-c
+				if !more {
+					wg.Done()
+					return
+				}
+				insertDoc(cmdOptions, client, endTime, workerId)
+			}
+		}(c)
+	}
+
+	for i := 0; i < parallelization; i++ {
+		c <- strings.Join([]string{"worker-", strconv.Itoa(i)}, "")
+	}
+
+	close(c)
+	wg.Wait()
+}
+
+func insertDoc(cmdOptions Options, client *mongo.Client, endTime time.Time, workerId string) {
+	for {
+		if time.Now().After(endTime) {
+			return
+		}
+
+		newDoc := createTestDoc(cmdOptions.numFields, cmdOptions.depth, cmdOptions.binary, workerId)
+		collection := client.Database(cmdOptions.dbName).Collection(cmdOptions.collName)
+		_, err := collection.InsertOne(context.TODO(), newDoc)
+		if err != nil {
+			panic(err)
+		}
+
+	}
+}
+
 type Options struct {
 	mongodbURI      string
 	help            bool
@@ -41,25 +137,6 @@ type Options struct {
 	binary          int
 	dbName          string
 	collName        string
-}
-
-var standardFields = log.Fields{
-	"appname": "mongo-perf-inspect",
-	"thread":  "thread-1",
-}
-
-func init() {
-	// Log as JSON instead of the default ASCII formatter.
-	log.SetFormatter(&log.JSONFormatter{
-		PrettyPrint: false,
-	})
-
-	// Output to stdout instead of the default stderr
-	// Can be any io.Writer, see below for File example
-	log.SetOutput(os.Stdout)
-
-	// Only log the warning severity or above.
-	log.SetLevel(log.InfoLevel)
 }
 
 func getOptions() Options {
@@ -170,77 +247,4 @@ func createTestDoc(numFields int, depth int, binarySize int, threadId string) bs
 	log.Info(newDoc)
 
 	return newDoc
-}
-
-func getMongoConnection(uri string) (*mongo.Client, func(), error) {
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
-	return client, func() {
-		if err := client.Disconnect(context.TODO()); err != nil {
-			panic(err)
-		}
-	}, err
-}
-
-func main() {
-
-	log.WithFields(standardFields).Info("MongoDB performance inspector tool v0.01 developed in golang !")
-
-	cmdOptions := getOptions()
-	log.WithFields(standardFields).Info(cmdOptions)
-
-	if cmdOptions.help {
-		flag.Usage()
-	}
-
-	client, closeConnection, err := getMongoConnection(cmdOptions.mongodbURI)
-	if err != nil {
-		panic(err)
-	} else {
-		defer closeConnection()
-	}
-
-	var duration = time.Duration(cmdOptions.duration) * time.Second
-	var endTime = time.Now().Add(duration)
-
-	parallelization := cmdOptions.workers
-	c := make(chan string)
-	var wg sync.WaitGroup
-	wg.Add(parallelization)
-
-	for i := 0; i < parallelization; i++ {
-		go func(c chan string) {
-			for {
-				workerId, more := <-c
-				if !more {
-					wg.Done()
-					return
-				}
-				insertDoc(cmdOptions, client, endTime, workerId)
-			}
-		}(c)
-	}
-
-	for i := 0; i < parallelization; i++ {
-		c <- strings.Join([]string{"worker-", strconv.Itoa(i)}, "")
-	}
-
-	close(c)
-	wg.Wait()
-
-}
-
-func insertDoc(cmdOptions Options, client *mongo.Client, endTime time.Time, workerId string) {
-	for {
-		if time.Now().After(endTime) {
-			return
-		}
-
-		newDoc := createTestDoc(cmdOptions.numFields, cmdOptions.depth, cmdOptions.binary, workerId)
-		collection := client.Database(cmdOptions.dbName).Collection(cmdOptions.collName)
-		_, err := collection.InsertOne(context.TODO(), newDoc)
-		if err != nil {
-			panic(err)
-		}
-
-	}
 }
