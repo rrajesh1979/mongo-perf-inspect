@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"os"
 	"strings"
+	"sync"
 	"time"
 	//"go.mongodb.org/mongo-driver/mongo"
 	//"go.mongodb.org/mongo-driver/mongo/options"
@@ -134,7 +135,7 @@ func GenRandomBytes(size int) (blk []byte, err error) {
 	return
 }
 
-func createTestDoc(numFields int, depth int, binarySize int) bson.M {
+func createTestDoc(numFields int, depth int, binarySize int, threadId string) bson.M {
 	idVal := primitive.NewObjectID()
 	newDoc := bson.M{"_id": idVal}
 
@@ -162,6 +163,7 @@ func createTestDoc(numFields int, depth int, binarySize int) bson.M {
 			binData, _ := GenRandomBytes(32)
 			newDoc[strings.Join([]string{"i", strconv.Itoa(numFields + 1)}, "")] = binData
 		}
+		newDoc[strings.Join([]string{"i", strconv.Itoa(numFields + 2)}, "")] = threadId
 	}
 
 	log.Info(newDoc)
@@ -196,27 +198,45 @@ func main() {
 		defer closeConnection()
 	}
 
-	var d = time.Duration(cmdOptions.duration) * time.Second
-	var t = time.Now().Add(d)
+	var duration = time.Duration(cmdOptions.duration) * time.Second
+	var endTime = time.Now().Add(duration)
 
-	for {
-		if time.Now().After(t) {
-			break
-		}
+	parallelization := cmdOptions.threads
+	c := make(chan string)
+	var wg sync.WaitGroup
+	wg.Add(parallelization)
 
-		result, error := insertDoc(cmdOptions, client)
-		if error != nil {
-			panic(error)
-		} else {
-			log.Info(result.InsertedID)
-		}
+	for i := 0; i < parallelization; i++ {
+		go func(c chan string) {
+			for {
+				threadId, more := <-c
+				if !more {
+					wg.Done()
+					return
+				}
+				insertDoc(cmdOptions, client, endTime, threadId)
+			}
+		}(c)
 	}
+
+	for i := 0; i < parallelization; i++ {
+		c <- strings.Join([]string{"thread", strconv.Itoa(i)}, "")
+	}
+	close(c)
+	wg.Wait()
 
 }
 
-func insertDoc(cmdOptions Options, client *mongo.Client) (*mongo.InsertOneResult, error) {
-	newDoc := createTestDoc(cmdOptions.numFields, cmdOptions.depth, cmdOptions.binary)
-	collection := client.Database(cmdOptions.dbName).Collection(cmdOptions.collName)
-	result, err := collection.InsertOne(context.TODO(), newDoc)
-	return result, err
+func insertDoc(cmdOptions Options, client *mongo.Client, endTime time.Time, threadId string) {
+	for {
+		if time.Now().After(endTime) {
+			break
+		}
+		newDoc := createTestDoc(cmdOptions.numFields, cmdOptions.depth, cmdOptions.binary, threadId)
+		collection := client.Database(cmdOptions.dbName).Collection(cmdOptions.collName)
+		_, err := collection.InsertOne(context.TODO(), newDoc)
+		if err != nil {
+			panic(err)
+		}
+	}
 }
