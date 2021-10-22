@@ -12,12 +12,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
-	//"go.mongodb.org/mongo-driver/mongo"
-	//"go.mongodb.org/mongo-driver/mongo/options"
-	"strconv"
 )
 
 type Options struct {
@@ -25,6 +23,7 @@ type Options struct {
 	help            bool
 	namespace       string
 	threads         int
+	workers         int
 	insertOps       int
 	queryOps        int
 	updateOps       int
@@ -67,6 +66,7 @@ func getOptions() Options {
 	mongodbURI := flag.String("mongodbURI", "mongodb://localhost:27017", "MongoDB connection details")
 	help := flag.Bool("help", false, "Show Help")
 	namespace := flag.String("namespace", "sample_mflix.movies", "Namespace to use for example myDatabase.myCollection")
+	workers := flag.Int("workers", 1, "Number of workers")
 	threads := flag.Int("threads", 1, "Number of threads")
 
 	insertOps := flag.Int("i", 100, "Ratio of insert operations")
@@ -107,6 +107,7 @@ func getOptions() Options {
 		*help,
 		*namespace,
 		*threads,
+		*workers,
 		*insertOps,
 		*queryOps,
 		*updateOps,
@@ -201,7 +202,7 @@ func main() {
 	var duration = time.Duration(cmdOptions.duration) * time.Second
 	var endTime = time.Now().Add(duration)
 
-	parallelization := cmdOptions.threads
+	parallelization := cmdOptions.workers
 	c := make(chan string)
 	var wg sync.WaitGroup
 	wg.Add(parallelization)
@@ -209,34 +210,37 @@ func main() {
 	for i := 0; i < parallelization; i++ {
 		go func(c chan string) {
 			for {
-				threadId, more := <-c
+				workerId, more := <-c
 				if !more {
 					wg.Done()
 					return
 				}
-				insertDoc(cmdOptions, client, endTime, threadId)
+				insertDoc(cmdOptions, client, endTime, workerId)
 			}
 		}(c)
 	}
 
 	for i := 0; i < parallelization; i++ {
-		c <- strings.Join([]string{"thread", strconv.Itoa(i)}, "")
+		c <- strings.Join([]string{"worker-", strconv.Itoa(i)}, "")
 	}
+
 	close(c)
 	wg.Wait()
 
 }
 
-func insertDoc(cmdOptions Options, client *mongo.Client, endTime time.Time, threadId string) {
+func insertDoc(cmdOptions Options, client *mongo.Client, endTime time.Time, workerId string) {
 	for {
 		if time.Now().After(endTime) {
-			break
+			return
 		}
-		newDoc := createTestDoc(cmdOptions.numFields, cmdOptions.depth, cmdOptions.binary, threadId)
+
+		newDoc := createTestDoc(cmdOptions.numFields, cmdOptions.depth, cmdOptions.binary, workerId)
 		collection := client.Database(cmdOptions.dbName).Collection(cmdOptions.collName)
 		_, err := collection.InsertOne(context.TODO(), newDoc)
 		if err != nil {
 			panic(err)
 		}
+
 	}
 }
