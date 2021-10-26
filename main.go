@@ -5,6 +5,8 @@ import (
 	cryptoRand "crypto/rand"
 	"flag"
 	"github.com/bxcodec/faker/v3"
+	"github.com/go-kit/kit/metrics"
+	"github.com/go-kit/kit/metrics/expvar"
 	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -22,6 +24,7 @@ var standardFields = log.Fields{
 	"appname": "mongo-perf-inspect",
 	"thread":  "thread-1",
 }
+var insertCount metrics.Counter = expvar.NewCounter("insert-count")
 
 func init() {
 	// Log as JSON instead of the default ASCII formatter.
@@ -35,6 +38,7 @@ func init() {
 
 	// Only log the warning severity or above.
 	log.SetLevel(log.ErrorLevel)
+
 }
 
 func getMongoConnection(uri string) (*mongo.Client, func(), error) {
@@ -68,6 +72,8 @@ func main() {
 	var endTime = time.Now().Add(duration)
 
 	startLoadProcess(cmdOptions, client, endTime)
+
+	log.Error(insertCount)
 
 }
 
@@ -109,6 +115,8 @@ func insertDoc(cmdOptions Options, client *mongo.Client, endTime time.Time, work
 		_, err := collection.InsertOne(context.TODO(), newDoc)
 		if err != nil {
 			panic(err)
+		} else {
+			insertCount.With(workerId).Add(1)
 		}
 
 	}
