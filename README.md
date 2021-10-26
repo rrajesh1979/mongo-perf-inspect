@@ -1,7 +1,7 @@
 # mongo-perf-inspect
 
 <p>
-<a href="https://github.com/rrajesh1979/mongo-perf-inspect/releases"><img src="https://img.shields.io/github/v/release/rrajesh1979/mongo-perf-inspect?include_prereleases" alt="Github release"></a>
+<img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/rrajesh1979/mongo-perf-inspect">
 <a href="https://github.com/rrajesh1979/mongo-perf-inspect/actions/workflows/go.yml">
     <img src="https://github.com/rrajesh1979/mongo-perf-inspect/actions/workflows/go.yml/badge.svg" alt="Build status">
 </a>
