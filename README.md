@@ -8,4 +8,5 @@
 <a href="https://goreportcard.com/report/github.com/k6io/k6"><img src="https://goreportcard.com/badge/github.com/k6io/k6" alt="Go Report Card"></a>
 <a href="https://codecov.io/github/rrajesh1979/mongo-perf-inspect"><img src="https://codecov.io/github/rrajesh1979/mongo-perf-inspect/branch/master/graph/badge.svg?token=ER2FNUMIUV" alt="Codecov branch"></a>
 <a href="https://codeclimate.com/github/rrajesh1979/mongo-perf-inspect/maintainability"><img src="https://api.codeclimate.com/v1/badges/186b72a6bed912c8a8ba/maintainability" /></a>
+<a href="https://codeclimate.com/github/rrajesh1979/mongo-perf-inspect/test_coverage"><img src="https://api.codeclimate.com/v1/badges/186b72a6bed912c8a8ba/test_coverage" /></a>
 </p>
