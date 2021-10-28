@@ -9,4 +9,6 @@
 <a href="https://codecov.io/github/rrajesh1979/mongo-perf-inspect"><img src="https://codecov.io/github/rrajesh1979/mongo-perf-inspect/branch/master/graph/badge.svg?token=ER2FNUMIUV" alt="Codecov branch"></a>
 <a href="https://codeclimate.com/github/rrajesh1979/mongo-perf-inspect/maintainability"><img src="https://api.codeclimate.com/v1/badges/186b72a6bed912c8a8ba/maintainability" /></a>
 <a href="https://codeclimate.com/github/rrajesh1979/mongo-perf-inspect/test_coverage"><img src="https://api.codeclimate.com/v1/badges/186b72a6bed912c8a8ba/test_coverage" /></a>
+<a href="https://img.shields.io/github/contributors/rrajesh1979/mongo-perf-inspect"><img alt="GitHub commits" src="https://img.shields.io/github/contributors/rrajesh1979/mongo-perf-inspect"></a>
+<a href="https://img.shields.io/github/commit-activity/w/rrajesh1979/mongo-perf-inspect"><img alt="GitHub contributors" src="https://img.shields.io/github/commit-activity/w/rrajesh1979/mongo-perf-inspect"></a>
 </p>

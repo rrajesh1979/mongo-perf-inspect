@@ -5,8 +5,9 @@ import (
 	cryptoRand "crypto/rand"
 	"flag"
 	"github.com/bxcodec/faker/v3"
-	"github.com/go-kit/kit/metrics"
-	"github.com/go-kit/kit/metrics/expvar"
+	"github.com/rcrowley/go-metrics"
+	//"github.com/go-kit/kit/metrics"
+	//"github.com/go-kit/kit/metrics/expvar"
 	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -24,7 +25,6 @@ var standardFields = log.Fields{
 	"appname": "mongo-perf-inspect",
 	"thread":  "thread-1",
 }
-var insertCount metrics.Counter = expvar.NewCounter("insert-count")
 
 func init() {
 	// Log as JSON instead of the default ASCII formatter.
@@ -52,6 +52,10 @@ func getMongoConnection(uri string) (*mongo.Client, func(), error) {
 
 func main() {
 
+	insertCounter := metrics.NewCounter()
+	metrics.GetOrRegister("insert-counter", insertCounter)
+	go metrics.Log(metrics.DefaultRegistry, 5*time.Second, log.New())
+
 	log.WithFields(standardFields).Info("MongoDB performance inspector tool v0.01 developed in golang !")
 
 	cmdOptions := getOptions()
@@ -73,11 +77,10 @@ func main() {
 
 	startLoadProcess(cmdOptions, client, endTime)
 
-	log.Error(insertCount)
-
 }
 
 func startLoadProcess(cmdOptions Options, client *mongo.Client, endTime time.Time) {
+
 	parallelization := cmdOptions.workers
 	c := make(chan string)
 	var wg sync.WaitGroup
@@ -116,7 +119,8 @@ func insertDoc(cmdOptions Options, client *mongo.Client, endTime time.Time, work
 		if err != nil {
 			panic(err)
 		} else {
-			insertCount.With(workerId).Add(1)
+			i := metrics.GetOrRegisterCounter("insert-counter", metrics.DefaultRegistry)
+			i.Inc(1)
 		}
 
 	}
